@@ -1,0 +1,26 @@
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+
+# Test and coverage outputs
+*.out
+*.coverprofile
+coverage.out
+cover.out
+
+# Local build directories
+bin/
+dist/
+
+# Local Go workspace files
+go.work
+go.work.sum
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/
