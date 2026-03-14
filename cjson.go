@@ -188,6 +188,10 @@ func (m *luaCJSONModule) wrap(fn func(*lua.LState) (int, error)) lua.LGFunction 
 	return func(L *lua.LState) int {
 		n, err := fn(L)
 		if err != nil {
+			if strings.HasPrefix(err.Error(), "bad argument #") {
+				L.RaiseError("%s", err.Error())
+				return 0
+			}
 			L.Push(lua.LNil)
 			L.Push(lua.LString(err.Error()))
 			return 2
@@ -197,12 +201,15 @@ func (m *luaCJSONModule) wrap(fn func(*lua.LState) (int, error)) lua.LGFunction 
 }
 
 func (m *luaCJSONModule) luaNew(L *lua.LState) int {
-	module := newLuaCJSONModule(m.config, m.assets, m.safe)
+	module := newLuaCJSONModule(defaultLuaCJSONConfig(), m.assets, m.safe)
 	L.Push(module.luaTable(L))
 	return 1
 }
 
 func (m *luaCJSONModule) luaEncode(L *lua.LState) (int, error) {
+	if L.GetTop() != 1 {
+		return 0, fmt.Errorf("bad argument #1 to '%s' (expected 1 argument)", m.functionName("encode"))
+	}
 	value := L.Get(1)
 	encoded, err := newLuaCJSONEncoder(L, m.config, m.assets).encode(value)
 	if err != nil {
@@ -213,6 +220,9 @@ func (m *luaCJSONModule) luaEncode(L *lua.LState) (int, error) {
 }
 
 func (m *luaCJSONModule) luaDecode(L *lua.LState) (int, error) {
+	if L.GetTop() != 1 {
+		return 0, fmt.Errorf("bad argument #1 to '%s' (expected 1 argument)", m.functionName("decode"))
+	}
 	text, err := luaCJSONStringArg(L.Get(1))
 	if err != nil {
 		return 0, err
@@ -226,22 +236,25 @@ func (m *luaCJSONModule) luaDecode(L *lua.LState) (int, error) {
 }
 
 func (m *luaCJSONModule) luaEncodeSparseArray(L *lua.LState) (int, error) {
+	if L.GetTop() > 3 {
+		return 0, fmt.Errorf("bad argument #4 to '%s' (found too many arguments)", m.functionName("encode_sparse_array"))
+	}
 	if L.GetTop() >= 1 && L.Get(1) != lua.LNil {
-		value, err := luaCJSONBoolLikeArg(L.Get(1))
+		value, err := luaCJSONBoolLikeArg(L.Get(1), m.functionName("encode_sparse_array"))
 		if err != nil {
 			return 0, err
 		}
 		m.config.encodeSparseConvert = value
 	}
 	if L.GetTop() >= 2 && L.Get(2) != lua.LNil {
-		value, err := luaCJSONIntArg(L.Get(2), 0, math.MaxInt)
+		value, err := luaCJSONIntArg(L.Get(2), 0, math.MaxInt32, m.functionName("encode_sparse_array"))
 		if err != nil {
 			return 0, err
 		}
 		m.config.encodeSparseRatio = value
 	}
 	if L.GetTop() >= 3 && L.Get(3) != lua.LNil {
-		value, err := luaCJSONIntArg(L.Get(3), 0, math.MaxInt)
+		value, err := luaCJSONIntArg(L.Get(3), 0, math.MaxInt32, m.functionName("encode_sparse_array"))
 		if err != nil {
 			return 0, err
 		}
@@ -254,8 +267,11 @@ func (m *luaCJSONModule) luaEncodeSparseArray(L *lua.LState) (int, error) {
 }
 
 func (m *luaCJSONModule) luaEncodeMaxDepth(L *lua.LState) (int, error) {
+	if L.GetTop() > 1 {
+		return 0, fmt.Errorf("bad argument #2 to '%s' (found too many arguments)", m.functionName("encode_max_depth"))
+	}
 	if L.Get(1) != lua.LNil {
-		value, err := luaCJSONIntArg(L.Get(1), 1, math.MaxInt)
+		value, err := luaCJSONIntArg(L.Get(1), 1, math.MaxInt32, m.functionName("encode_max_depth"))
 		if err != nil {
 			return 0, err
 		}
@@ -266,8 +282,11 @@ func (m *luaCJSONModule) luaEncodeMaxDepth(L *lua.LState) (int, error) {
 }
 
 func (m *luaCJSONModule) luaDecodeMaxDepth(L *lua.LState) (int, error) {
+	if L.GetTop() > 1 {
+		return 0, fmt.Errorf("bad argument #2 to '%s' (found too many arguments)", m.functionName("decode_max_depth"))
+	}
 	if L.Get(1) != lua.LNil {
-		value, err := luaCJSONIntArg(L.Get(1), 1, math.MaxInt)
+		value, err := luaCJSONIntArg(L.Get(1), 1, math.MaxInt32, m.functionName("decode_max_depth"))
 		if err != nil {
 			return 0, err
 		}
@@ -278,8 +297,11 @@ func (m *luaCJSONModule) luaDecodeMaxDepth(L *lua.LState) (int, error) {
 }
 
 func (m *luaCJSONModule) luaEncodeNumberPrecision(L *lua.LState) (int, error) {
+	if L.GetTop() > 1 {
+		return 0, fmt.Errorf("bad argument #2 to '%s' (found too many arguments)", m.functionName("encode_number_precision"))
+	}
 	if L.Get(1) != lua.LNil {
-		value, err := luaCJSONIntArg(L.Get(1), 1, 16)
+		value, err := luaCJSONIntArg(L.Get(1), 1, 16, m.functionName("encode_number_precision"))
 		if err != nil {
 			return 0, err
 		}
@@ -290,8 +312,11 @@ func (m *luaCJSONModule) luaEncodeNumberPrecision(L *lua.LState) (int, error) {
 }
 
 func (m *luaCJSONModule) luaEncodeKeepBuffer(L *lua.LState) (int, error) {
+	if L.GetTop() > 1 {
+		return 0, fmt.Errorf("bad argument #2 to '%s' (found too many arguments)", m.functionName("encode_keep_buffer"))
+	}
 	if L.Get(1) != lua.LNil {
-		value, err := luaCJSONBoolLikeArg(L.Get(1))
+		value, err := luaCJSONBoolLikeArg(L.Get(1), m.functionName("encode_keep_buffer"))
 		if err != nil {
 			return 0, err
 		}
@@ -302,8 +327,11 @@ func (m *luaCJSONModule) luaEncodeKeepBuffer(L *lua.LState) (int, error) {
 }
 
 func (m *luaCJSONModule) luaEncodeInvalidNumbers(L *lua.LState) (int, error) {
+	if L.GetTop() > 1 {
+		return 0, fmt.Errorf("bad argument #2 to '%s' (found too many arguments)", m.functionName("encode_invalid_numbers"))
+	}
 	if L.Get(1) != lua.LNil {
-		value, err := luaCJSONInvalidNumbersArg(L.Get(1))
+		value, err := luaCJSONInvalidNumbersArg(L.Get(1), m.functionName("encode_invalid_numbers"))
 		if err != nil {
 			return 0, err
 		}
@@ -314,8 +342,11 @@ func (m *luaCJSONModule) luaEncodeInvalidNumbers(L *lua.LState) (int, error) {
 }
 
 func (m *luaCJSONModule) luaDecodeInvalidNumbers(L *lua.LState) (int, error) {
+	if L.GetTop() > 1 {
+		return 0, fmt.Errorf("bad argument #2 to '%s' (found too many arguments)", m.functionName("decode_invalid_numbers"))
+	}
 	if L.Get(1) != lua.LNil {
-		value, err := luaCJSONBoolLikeArg(L.Get(1))
+		value, err := luaCJSONBoolLikeArg(L.Get(1), m.functionName("decode_invalid_numbers"))
 		if err != nil {
 			return 0, err
 		}
@@ -326,8 +357,11 @@ func (m *luaCJSONModule) luaDecodeInvalidNumbers(L *lua.LState) (int, error) {
 }
 
 func (m *luaCJSONModule) luaEncodeEmptyTableAsObject(L *lua.LState) (int, error) {
+	if L.GetTop() > 1 {
+		return 0, fmt.Errorf("bad argument #2 to '%s' (found too many arguments)", m.functionName("encode_empty_table_as_object"))
+	}
 	if L.Get(1) != lua.LNil {
-		value, err := luaCJSONBoolLikeArg(L.Get(1))
+		value, err := luaCJSONBoolLikeArg(L.Get(1), m.functionName("encode_empty_table_as_object"))
 		if err != nil {
 			return 0, err
 		}
@@ -338,8 +372,11 @@ func (m *luaCJSONModule) luaEncodeEmptyTableAsObject(L *lua.LState) (int, error)
 }
 
 func (m *luaCJSONModule) luaDecodeArrayWithArrayMT(L *lua.LState) (int, error) {
+	if L.GetTop() > 1 {
+		return 0, fmt.Errorf("bad argument #2 to '%s' (found too many arguments)", m.functionName("decode_array_with_array_mt"))
+	}
 	if L.Get(1) != lua.LNil {
-		value, err := luaCJSONBoolLikeArg(L.Get(1))
+		value, err := luaCJSONBoolLikeArg(L.Get(1), m.functionName("decode_array_with_array_mt"))
 		if err != nil {
 			return 0, err
 		}
@@ -350,8 +387,11 @@ func (m *luaCJSONModule) luaDecodeArrayWithArrayMT(L *lua.LState) (int, error) {
 }
 
 func (m *luaCJSONModule) luaDecodeAllowComment(L *lua.LState) (int, error) {
+	if L.GetTop() > 1 {
+		return 0, fmt.Errorf("bad argument #2 to '%s' (found too many arguments)", m.functionName("decode_allow_comment"))
+	}
 	if L.Get(1) != lua.LNil {
-		value, err := luaCJSONBoolLikeArg(L.Get(1))
+		value, err := luaCJSONBoolLikeArg(L.Get(1), m.functionName("decode_allow_comment"))
 		if err != nil {
 			return 0, err
 		}
@@ -362,8 +402,11 @@ func (m *luaCJSONModule) luaDecodeAllowComment(L *lua.LState) (int, error) {
 }
 
 func (m *luaCJSONModule) luaEncodeEscapeForwardSlash(L *lua.LState) (int, error) {
+	if L.GetTop() > 1 {
+		return 0, fmt.Errorf("bad argument #2 to '%s' (found too many arguments)", m.functionName("encode_escape_forward_slash"))
+	}
 	if L.Get(1) != lua.LNil {
-		value, err := luaCJSONBoolLikeArg(L.Get(1))
+		value, err := luaCJSONBoolLikeArg(L.Get(1), m.functionName("encode_escape_forward_slash"))
 		if err != nil {
 			return 0, err
 		}
@@ -374,8 +417,11 @@ func (m *luaCJSONModule) luaEncodeEscapeForwardSlash(L *lua.LState) (int, error)
 }
 
 func (m *luaCJSONModule) luaEncodeSkipUnsupportedValueTypes(L *lua.LState) (int, error) {
+	if L.GetTop() > 1 {
+		return 0, fmt.Errorf("bad argument #2 to '%s' (found too many arguments)", m.functionName("encode_skip_unsupported_value_types"))
+	}
 	if L.Get(1) != lua.LNil {
-		value, err := luaCJSONBoolLikeArg(L.Get(1))
+		value, err := luaCJSONBoolLikeArg(L.Get(1), m.functionName("encode_skip_unsupported_value_types"))
 		if err != nil {
 			return 0, err
 		}
@@ -386,6 +432,9 @@ func (m *luaCJSONModule) luaEncodeSkipUnsupportedValueTypes(L *lua.LState) (int,
 }
 
 func (m *luaCJSONModule) luaEncodeIndent(L *lua.LState) (int, error) {
+	if L.GetTop() > 1 {
+		return 0, fmt.Errorf("bad argument #2 to '%s' (found too many arguments)", m.functionName("encode_indent"))
+	}
 	if L.Get(1) != lua.LNil {
 		text, err := luaCJSONStringArg(L.Get(1))
 		if err != nil {
@@ -405,23 +454,38 @@ func luaCJSONStringArg(value lua.LValue) (string, error) {
 	return string(text), nil
 }
 
-func luaCJSONIntArg(value lua.LValue, minValue, maxValue int) (int, error) {
-	number, ok := value.(lua.LNumber)
-	if !ok {
-		return 0, fmt.Errorf("expected integer")
+func (m *luaCJSONModule) functionName(name string) string {
+	if m.safe {
+		return "cjson.safe." + name
 	}
-	numeric := float64(number)
+	return "cjson." + name
+}
+
+func luaCJSONIntArg(value lua.LValue, minValue, maxValue int, funcName string) (int, error) {
+	var numeric float64
+	switch typed := value.(type) {
+	case lua.LNumber:
+		numeric = float64(typed)
+	case lua.LString:
+		parsed, err := strconv.ParseFloat(string(typed), 64)
+		if err != nil {
+			return 0, fmt.Errorf("bad argument #1 to '%s' (number expected, got string)", funcName)
+		}
+		numeric = parsed
+	default:
+		return 0, fmt.Errorf("bad argument #1 to '%s' (number expected, got %s)", funcName, value.Type().String())
+	}
 	if math.Trunc(numeric) != numeric {
-		return 0, fmt.Errorf("expected integer")
+		return 0, fmt.Errorf("bad argument #1 to '%s' (expected integer between %d and %d)", funcName, minValue, maxValue)
 	}
 	next := int(numeric)
 	if next < minValue || next > maxValue {
-		return 0, fmt.Errorf("integer out of range")
+		return 0, fmt.Errorf("bad argument #1 to '%s' (expected integer between %d and %d)", funcName, minValue, maxValue)
 	}
 	return next, nil
 }
 
-func luaCJSONBoolLikeArg(value lua.LValue) (bool, error) {
+func luaCJSONBoolLikeArg(value lua.LValue, funcName string) (bool, error) {
 	switch typed := value.(type) {
 	case lua.LBool:
 		return bool(typed), nil
@@ -431,12 +495,14 @@ func luaCJSONBoolLikeArg(value lua.LValue) (bool, error) {
 			return true, nil
 		case "off":
 			return false, nil
+		default:
+			return false, fmt.Errorf("bad argument #1 to '%s' (invalid option '%s')", funcName, string(typed))
 		}
 	}
-	return false, fmt.Errorf("expected boolean")
+	return false, fmt.Errorf("bad argument #1 to '%s' (boolean expected, got %s)", funcName, value.Type().String())
 }
 
-func luaCJSONInvalidNumbersArg(value lua.LValue) (int, error) {
+func luaCJSONInvalidNumbersArg(value lua.LValue, funcName string) (int, error) {
 	switch typed := value.(type) {
 	case lua.LBool:
 		if bool(typed) {
@@ -451,9 +517,13 @@ func luaCJSONInvalidNumbersArg(value lua.LValue) (int, error) {
 			return luaCJSONInvalidOff, nil
 		case "null":
 			return luaCJSONInvalidAsNull, nil
+		default:
+			return 0, fmt.Errorf("bad argument #1 to '%s' (invalid option '%s')", funcName, string(typed))
 		}
+	case lua.LNumber:
+		return 0, fmt.Errorf("bad argument #1 to '%s' (invalid option '%s')", funcName, luaCJSONNumberString(float64(typed), 14))
 	}
-	return 0, fmt.Errorf("expected boolean or one of on/off/null")
+	return 0, fmt.Errorf("bad argument #1 to '%s' (invalid option '%s')", funcName, value.String())
 }
 
 func luaCJSONInvalidNumbersValue(value int) lua.LValue {

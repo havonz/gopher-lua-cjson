@@ -281,7 +281,7 @@ func (e *luaCJSONEncoder) appendObject(builder *strings.Builder, table *lua.LTab
 	written := 0
 	for _, key := range keys {
 		if key.kind == "invalid" {
-			return fmt.Errorf("Cannot serialise table: table key must be a number or string")
+			return fmt.Errorf("Cannot serialise %s: table key must be a number or string", key.value.Type().String())
 		}
 
 		var child strings.Builder
@@ -316,8 +316,9 @@ func (e *luaCJSONEncoder) appendObject(builder *strings.Builder, table *lua.LTab
 
 func (e *luaCJSONEncoder) appendString(builder *strings.Builder, text string) {
 	builder.WriteByte('"')
-	for _, r := range text {
-		switch r {
+	for i := 0; i < len(text); i++ {
+		b := text[i]
+		switch b {
 		case '\\':
 			builder.WriteString(`\\`)
 		case '"':
@@ -336,14 +337,14 @@ func (e *luaCJSONEncoder) appendString(builder *strings.Builder, text string) {
 			if e.config.encodeEscapeForwardSlash {
 				builder.WriteString(`\/`)
 			} else {
-				builder.WriteRune(r)
+				builder.WriteByte(b)
 			}
 		default:
-			if r < 0x20 {
+			if b < 0x20 || b == 0x7f {
 				builder.WriteString(`\u`)
-				builder.WriteString(strings.ToUpper(fmt.Sprintf("%04x", r)))
+				builder.WriteString(fmt.Sprintf("%04x", b))
 			} else {
-				builder.WriteRune(r)
+				builder.WriteByte(b)
 			}
 		}
 	}

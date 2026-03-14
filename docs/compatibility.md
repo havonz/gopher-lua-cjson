@@ -13,6 +13,7 @@
 当前 `go test ./...` 会覆盖两类内容：
 
 - 结构化上游测试：解析并执行 `upstream/openresty-lua-cjson/tests/agentzh.t` 中已接入的 case
+- 上游 suite 测试：在 Go 侧 runner 中执行 `upstream/openresty-lua-cjson/tests/test.lua`
 - 关键语义测试：从上游 `tests/test.lua` 抽取并固定为 Go 子测试的兼容行为
 
 当前文档只记录覆盖来源和验证方式，不单独复述这些 case 的语义解释；语义解释由上游 README 负责。
@@ -20,6 +21,7 @@
 ## 已知边界
 
 - 当前并没有在 `go test` 中完整解释执行上游整份 `tests/test.lua`
+- 当前 `tests/test.lua` runner 为了适配 `gopher-lua` 的 VM 限制，会跳过一个“生成全量 UTF-16 转义数据”的极限 case；除该极限 case 外，其余 suite 场景已在当前 runner 下通过
 - 某些错误文案、运行时细节和 Lua/LuaJIT 宿主差异，仍可能与 OpenResty C 实现存在剩余偏差
 - 兼容性状态以当前仓库测试覆盖到的场景为准，未覆盖部分不应默认视为完全一致
 

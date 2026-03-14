@@ -28,8 +28,11 @@ resolved_commit="$(
 
 mkdir -p "${snapshot_dir}"
 rm -rf "${snapshot_dir}/tests"
+rm -rf "${snapshot_dir}/lua"
 
 cp -R "${tmpdir}/src/tests" "${snapshot_dir}/tests"
+mkdir -p "${snapshot_dir}/lua/cjson"
+cp "${tmpdir}/src/lua/cjson/util.lua" "${snapshot_dir}/lua/cjson/util.lua"
 cp "${tmpdir}/src/README.md" "${snapshot_dir}/README.md"
 cp "${tmpdir}/src/manual.adoc" "${snapshot_dir}/manual.adoc"
 cp "${tmpdir}/src/performance.adoc" "${snapshot_dir}/performance.adoc"
