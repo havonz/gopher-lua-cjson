@@ -97,7 +97,7 @@ func (e *luaCJSONEncoder) appendNumber(builder *strings.Builder, value float64) 
 
 func (e *luaCJSONEncoder) appendTable(builder *strings.Builder, table *lua.LTable, depth int) error {
 	if luaCJSONMetatableEquals(table, e.assets.arrayMT) {
-		return e.appendArray(builder, table, depth, table.Len(), true)
+		return e.appendArray(builder, table, depth, e.arrayMTLength(table), true)
 	}
 
 	if length, asArray, raw, err := e.detectArray(table); err != nil {
@@ -110,6 +110,66 @@ func (e *luaCJSONEncoder) appendTable(builder *strings.Builder, table *lua.LTabl
 		return e.appendArray(builder, table, depth, 0, true)
 	}
 	return e.appendObject(builder, table, depth)
+}
+
+func (e *luaCJSONEncoder) arrayMTLength(table *lua.LTable) int {
+	if table == nil {
+		return 0
+	}
+
+	keys := make(map[int]struct{})
+	maxIndex := 0
+	table.ForEach(func(key lua.LValue, _ lua.LValue) {
+		number, ok := key.(lua.LNumber)
+		if !ok {
+			return
+		}
+
+		numeric := float64(number)
+		if numeric < 1 || math.Trunc(numeric) != numeric {
+			return
+		}
+
+		index := int(numeric)
+		keys[index] = struct{}{}
+		if index > maxIndex {
+			maxIndex = index
+		}
+	})
+
+	if maxIndex == 0 {
+		return 0
+	}
+
+	bestSize := 0
+	count := 0
+	sortedKeys := make([]int, 0, len(keys))
+	for index := range keys {
+		sortedKeys = append(sortedKeys, index)
+	}
+	sort.Ints(sortedKeys)
+
+	for size, i := 1, 0; ; {
+		for i < len(sortedKeys) && sortedKeys[i] <= size {
+			count++
+			i++
+		}
+		if count > size/2 {
+			bestSize = size
+		}
+		if size >= maxIndex || size > math.MaxInt/2 {
+			break
+		}
+		size *= 2
+	}
+
+	for index := bestSize; index >= 1; index-- {
+		if _, ok := keys[index]; ok {
+			return index
+		}
+	}
+
+	return 0
 }
 
 func (e *luaCJSONEncoder) detectArray(table *lua.LTable) (int, bool, bool, error) {

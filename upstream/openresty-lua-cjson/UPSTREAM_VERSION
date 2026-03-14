@@ -1,0 +1,4 @@
+source_repo=https://github.com/openresty/lua-cjson
+requested_ref=master
+resolved_commit=c305d55c7f321c01b4d135ef6d41879fd5f8e9f5
+synced_at=2026-03-14T15:37:33Z

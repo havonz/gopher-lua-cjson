@@ -38,20 +38,17 @@ func (d *luaCJSONDecoder) decode(text string) (lua.LValue, error) {
 		return nil, err
 	}
 	if d.pos != len(d.text) {
-		return nil, fmt.Errorf("unexpected trailing content at character %d", d.pos+1)
+		return nil, fmt.Errorf("Expected the end but found %s at character %d", d.tokenNameAt(d.pos), d.pos+1)
 	}
 	return value, nil
 }
 
 func (d *luaCJSONDecoder) parseValue(depth int) (lua.LValue, error) {
-	if depth > d.config.decodeMaxDepth {
-		return nil, fmt.Errorf("Found too many nested data structures (%d)", depth)
-	}
 	if err := d.skipIgnored(); err != nil {
 		return nil, err
 	}
 	if d.pos >= len(d.text) {
-		return nil, fmt.Errorf("unexpected end of input")
+		return nil, fmt.Errorf("Expected value but found T_END at character %d", d.pos+1)
 	}
 
 	switch d.text[d.pos] {
@@ -62,8 +59,14 @@ func (d *luaCJSONDecoder) parseValue(depth int) (lua.LValue, error) {
 		}
 		return lua.LString(text), nil
 	case '{':
+		if depth+1 > d.config.decodeMaxDepth {
+			return nil, fmt.Errorf("Found too many nested data structures (%d) at character %d", depth+1, d.pos+1)
+		}
 		return d.parseObject(depth + 1)
 	case '[':
+		if depth+1 > d.config.decodeMaxDepth {
+			return nil, fmt.Errorf("Found too many nested data structures (%d) at character %d", depth+1, d.pos+1)
+		}
 		return d.parseArray(depth + 1)
 	case 't':
 		if strings.HasPrefix(d.text[d.pos:], "true") {
@@ -82,6 +85,45 @@ func (d *luaCJSONDecoder) parseValue(depth int) (lua.LValue, error) {
 		}
 	}
 	return d.parseNumber()
+}
+
+func (d *luaCJSONDecoder) tokenNameAt(pos int) string {
+	if pos >= len(d.text) {
+		return "T_END"
+	}
+
+	switch d.text[pos] {
+	case '{':
+		return "T_OBJ_BEGIN"
+	case '}':
+		return "T_OBJ_END"
+	case '[':
+		return "T_ARR_BEGIN"
+	case ']':
+		return "T_ARR_END"
+	case ',':
+		return "T_COMMA"
+	case ':':
+		return "T_COLON"
+	case '"':
+		return "T_STRING"
+	}
+
+	if pos < len(d.text) {
+		ch := d.text[pos]
+		if (ch >= '0' && ch <= '9') || ch == '-' {
+			return "T_NUMBER"
+		}
+	}
+
+	if strings.HasPrefix(d.text[pos:], "true") || strings.HasPrefix(d.text[pos:], "false") {
+		return "T_BOOLEAN"
+	}
+	if strings.HasPrefix(d.text[pos:], "null") {
+		return "T_NULL"
+	}
+
+	return "invalid token"
 }
 
 func (d *luaCJSONDecoder) parseObject(depth int) (lua.LValue, error) {
