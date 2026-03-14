@@ -1,6 +1,6 @@
 # Compatibility Notes
 
-本项目的行为语义以 [OpenResty `lua-cjson`](https://github.com/openresty/lua-cjson) 为参考目标。
+本文档不重新定义 API 语义。`cjson` / `cjson.safe` 的行为语义以上游 [OpenResty `lua-cjson`](https://github.com/openresty/lua-cjson) README 和本仓库内的 [`upstream/openresty-lua-cjson/README.md`](../upstream/openresty-lua-cjson/README.md) 为准。
 
 ## 上游快照
 
@@ -15,15 +15,7 @@
 - 结构化上游测试：解析并执行 `upstream/openresty-lua-cjson/tests/agentzh.t` 中已接入的 case
 - 关键语义测试：从上游 `tests/test.lua` 抽取并固定为 Go 子测试的兼容行为
 
-当前已经明确覆盖的方向包括：
-
-- 空表编码策略
-- `empty_array`
-- `array_mt`
-- `empty_array_mt`
-- `decode_array_with_array_mt`
-- 部分解码错误文案
-- 部分嵌套深度错误文案
+当前文档只记录覆盖来源和验证方式，不单独复述这些 case 的语义解释；语义解释由上游 README 负责。
 
 ## 已知边界
 
