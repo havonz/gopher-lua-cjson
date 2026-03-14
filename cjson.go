@@ -211,9 +211,12 @@ func (m *luaCJSONModule) luaEncode(L *lua.LState) (int, error) {
 		return 0, fmt.Errorf("bad argument #1 to '%s' (expected 1 argument)", m.functionName("encode"))
 	}
 	value := L.Get(1)
-	encoded, err := newLuaCJSONEncoder(L, m.config, m.assets).encode(value)
+	encoded, skipped, err := newLuaCJSONEncoder(L, m.config, m.assets).encode(value)
 	if err != nil {
 		return 0, err
+	}
+	if skipped {
+		return 0, nil
 	}
 	L.Push(lua.LString(encoded))
 	return 1, nil

@@ -46,42 +46,20 @@ func TestAgentzhParserReadsFirstCase(t *testing.T) {
 	}
 }
 
-func TestAgentzhExecutesSelectedCases(t *testing.T) {
+func TestAgentzhExecutesAllCases(t *testing.T) {
 	t.Parallel()
 
 	cases, err := upstreamtests.ParseAgentzhCases()
 	if err != nil {
 		t.Fatalf("ParseAgentzhCases returned error: %v", err)
 	}
-
-	selected := []string{
-		"TEST 1: empty tables as objects",
-		"TEST 2: empty tables as arrays",
-		"TEST 3: empty tables as objects (explicit)",
-		"TEST 4: empty_array userdata",
-		"TEST 5: empty_array_mt",
-		"TEST 6: empty_array_mt and empty tables as objects (explicit)",
-		"TEST 7: empty_array_mt and empty tables as objects (explicit)",
-		"TEST 8: empty_array_mt on non-empty tables",
-		"TEST 9: array_mt on empty tables",
-		"TEST 10: array_mt on non-empty tables",
-		"TEST 11: array_mt on non-empty tables with holes",
-		"TEST 12: decode() by default does not set array_mt on empty arrays",
-		"TEST 13: decode() sets array_mt on non-empty arrays if enabled",
-		"TEST 14: cfg can enable/disable setting array_mt",
-		"TEST 15: array_mt on tables with hash part",
-		"TEST 16: multiple calls to lua_cjson_new (1/3)",
-		"TEST 17: multiple calls to lua_cjson_new (2/3)",
-		"TEST 18: multiple calls to lua_cjson_new (3/3)",
+	if len(cases) != 24 {
+		t.Fatalf("unexpected agentzh case count: got %d want 24", len(cases))
 	}
 
-	for _, name := range selected {
-		testCase, ok := upstreamtests.FindAgentzhCase(cases, name)
-		if !ok {
-			t.Fatalf("missing selected agentzh case %q", name)
-		}
-
-		t.Run(name, func(t *testing.T) {
+	for _, testCase := range cases {
+		testCase := testCase
+		t.Run(testCase.Name, func(t *testing.T) {
 			if err := upstreamtests.RunAgentzhCase(testCase); err != nil {
 				t.Fatalf("RunAgentzhCase failed: %v", err)
 			}

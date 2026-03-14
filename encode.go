@@ -30,12 +30,15 @@ func newLuaCJSONEncoder(L *lua.LState, config *luaCJSONConfig, assets *luaCJSONA
 	}
 }
 
-func (e *luaCJSONEncoder) encode(value lua.LValue) (string, error) {
+func (e *luaCJSONEncoder) encode(value lua.LValue) (string, bool, error) {
 	var builder strings.Builder
-	if err := e.appendValue(&builder, value, 0, false); err != nil {
-		return "", err
+	if err := e.appendValue(&builder, value, 0, true); err != nil {
+		if err == errLuaCJSONSkipValue {
+			return "", true, nil
+		}
+		return "", false, err
 	}
-	return builder.String(), nil
+	return builder.String(), false, nil
 }
 
 func (e *luaCJSONEncoder) appendValue(builder *strings.Builder, value lua.LValue, depth int, skipUnsupported bool) error {
@@ -176,6 +179,13 @@ func (e *luaCJSONEncoder) detectArray(table *lua.LTable) (int, bool, bool, error
 	if table == nil {
 		return 0, false, false, nil
 	}
+
+	if e.tableEntryCount(table) == 0 {
+		length := e.L.ObjLen(table)
+		if length > 0 {
+			return length, true, false, nil
+		}
+	}
 	if table.Len() == 0 && e.tableEntryCount(table) == 0 {
 		return 0, !e.config.encodeEmptyTableAsObject, true, nil
 	}
@@ -212,7 +222,7 @@ func (e *luaCJSONEncoder) detectArray(table *lua.LTable) (int, bool, bool, error
 		}
 		return 0, false, false, nil
 	}
-	return maxIndex, true, false, nil
+	return maxIndex, true, true, nil
 }
 
 func (e *luaCJSONEncoder) appendArray(builder *strings.Builder, table *lua.LTable, depth, length int, raw bool) error {
@@ -223,7 +233,7 @@ func (e *luaCJSONEncoder) appendArray(builder *strings.Builder, table *lua.LTabl
 		if raw {
 			value = table.RawGetInt(index)
 		} else {
-			value = table.RawGetInt(index)
+			value = e.L.GetTable(table, lua.LNumber(index))
 		}
 
 		var child strings.Builder

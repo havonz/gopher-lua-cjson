@@ -3,10 +3,11 @@ package upstreamtests
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"sync"
-	"strings"
 	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"sync"
 
 	luacjson "github.com/havonz/gopher-lua-cjson"
 	lua "github.com/yuin/gopher-lua"
@@ -22,6 +23,7 @@ type SuiteResult struct {
 }
 
 var chdirMu sync.Mutex
+var chunkErrorPrefix = regexp.MustCompile(`^<string>:\d+:\s*`)
 
 func RunLua(source string) (RunResult, error) {
 	L := newLuaState()
@@ -36,7 +38,7 @@ func RunLua(source string) (RunResult, error) {
 	L.SetGlobal("print", L.NewFunction(func(L *lua.LState) int {
 		values := make([]string, 0, L.GetTop())
 		for i := 1; i <= L.GetTop(); i++ {
-			values = append(values, L.Get(i).String())
+			values = append(values, normalizePrintedValue(L.Get(i)))
 		}
 		output.WriteString(strings.Join(values, "\t"))
 		output.WriteByte('\n')
@@ -89,7 +91,7 @@ func RunUpstreamSuite() (SuiteResult, error) {
 	L.SetGlobal("print", L.NewFunction(func(L *lua.LState) int {
 		values := make([]string, 0, L.GetTop())
 		for i := 1; i <= L.GetTop(); i++ {
-			values = append(values, L.Get(i).String())
+			values = append(values, normalizePrintedValue(L.Get(i)))
 		}
 		output.WriteString(strings.Join(values, "\t"))
 		output.WriteByte('\n')
@@ -119,10 +121,10 @@ func RunUpstreamSuite() (SuiteResult, error) {
 
 func newLuaState() *lua.LState {
 	return lua.NewState(lua.Options{
-		RegistrySize:       1024 * 256,
-		RegistryMaxSize:    1024 * 512,
-		RegistryGrowStep:   1024 * 32,
-		CallStackSize:      2048,
+		RegistrySize:        1024 * 256,
+		RegistryMaxSize:     1024 * 512,
+		RegistryGrowStep:    1024 * 32,
+		CallStackSize:       2048,
 		MinimizeStackMemory: true,
 	})
 }
@@ -246,4 +248,12 @@ func ReadFixture(parts ...string) ([]byte, error) {
 		return nil, fmt.Errorf("read fixture %s: %w", path, err)
 	}
 	return data, nil
+}
+
+func normalizePrintedValue(value lua.LValue) string {
+	text := value.String()
+	if value.Type() != lua.LTString {
+		return text
+	}
+	return chunkErrorPrefix.ReplaceAllString(text, "")
 }
