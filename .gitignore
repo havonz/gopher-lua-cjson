@@ -24,3 +24,12 @@ go.work.sum
 .DS_Store
 .idea/
 .vscode/
+
+# Local planning artifacts
+docs/superpowers/plans/
+
+# Generated files from upstream lua-cjson tooling
+upstream/openresty-lua-cjson/build/
+upstream/openresty-lua-cjson/tests/cjson.so
+upstream/openresty-lua-cjson/tests/cjson/
+upstream/openresty-lua-cjson/tests/utf8.dat
